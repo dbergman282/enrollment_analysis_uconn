@@ -1,32 +1,30 @@
 import streamlit as st
 import pandas as pd
 
-# Set page config
-st.set_page_config(page_title="Academic Plan Analyzer", layout="wide")
+# Page config
+st.set_page_config(page_title="Academic Plan Summary", layout="wide")
 
-# Custom styling
+# Custom dark theme styling
 st.markdown(
     """
     <style>
-        body {
-            background-color: #1e1e1e;
-            color: white;
-        }
-        .css-1d391kg, .css-1v0mbdj {
-            color: white !important;
-        }
-        .stApp {
-            background-color: #1e1e1e;
+        html, body, [class*="css"]  {
+            background-color: #121212;
+            color: #E0E0E0;
         }
         .title {
             color: #4FC3F7;
             font-size: 2.5em;
             font-weight: bold;
+            margin-bottom: 1em;
         }
         .subheader {
             color: #81D4FA;
             font-size: 1.5em;
-            margin-top: 2em;
+            margin-top: 1.5em;
+        }
+        .stDataFrame {
+            background-color: #1e1e1e;
         }
     </style>
     """,
@@ -36,44 +34,46 @@ st.markdown(
 # Title
 st.markdown('<div class="title">🎓 Academic Plan Summary Explorer</div>', unsafe_allow_html=True)
 
-# Sidebar file upload
+# Sidebar
 st.sidebar.header("Upload Your Excel File")
-uploaded_file = st.sidebar.file_uploader("Upload Excel", type=["xlsx"])
+uploaded_file = st.sidebar.file_uploader("Upload Excel (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
     try:
+        # Read data, skipping first two rows
         df = pd.read_excel(uploaded_file, skiprows=2)
 
+        # Validate columns
         if 'Academic Plan' not in df.columns or 'Academic Plan Description' not in df.columns:
-            st.error("Missing required columns: 'Academic Plan' and/or 'Academic Plan Description'")
+            st.error("❌ The uploaded file must contain 'Academic Plan' and 'Academic Plan Description' columns.")
         else:
-            # Sidebar filter
-            st.sidebar.header("Filter by Academic Plan")
-            unique_plans = df['Academic Plan'].dropna().unique()
-            selected_plan = st.sidebar.selectbox("Choose an Academic Plan", ["All"] + sorted(unique_plans.tolist()))
+            # Sidebar multiselect filter
+            all_plans = sorted(df['Academic Plan'].dropna().unique())
+            selected_plans = st.sidebar.multiselect("Filter by Academic Plan(s)", options=all_plans, default=all_plans)
 
-            if selected_plan != "All":
-                df = df[df['Academic Plan'] == selected_plan]
+            # Apply filter
+            filtered_df = df[df['Academic Plan'].isin(selected_plans)]
 
-            # Display record count
-            st.markdown('<div class="subheader">📊 Dataset Overview</div>', unsafe_allow_html=True)
-            st.write(f"Showing **{len(df):,} records** for Academic Plan: `{selected_plan}`")
-
-            # Show summary by Academic Plan Description
-            st.markdown('<div class="subheader">🔍 Records by Academic Plan Description</div>', unsafe_allow_html=True)
+            # Display summary
+            st.markdown('<div class="subheader">📊 Records by Academic Plan Description</div>', unsafe_allow_html=True)
             summary_df = (
-                df['Academic Plan Description']
+                filtered_df['Academic Plan Description']
                 .value_counts()
                 .reset_index()
                 .rename(columns={"index": "Academic Plan Description", "Academic Plan Description": "Count"})
             )
-            st.dataframe(summary_df, use_container_width=True)
 
-            # Show raw preview
-            st.markdown('<div class="subheader">📑 Data Preview</div>', unsafe_allow_html=True)
-            st.dataframe(df.head(20), use_container_width=True)
+            # Style the summary table
+            def dark_style(df):
+                return df.style.set_properties(**{
+                    'background-color': '#1e1e1e',
+                    'color': '#E0E0E0',
+                    'border-color': '#444'
+                })
+
+            st.dataframe(dark_style(summary_df), use_container_width=True)
 
     except Exception as e:
         st.error(f"❌ Error reading file: {e}")
 else:
-    st.info("Upload an Excel file from the sidebar to begin.")
+    st.info("📂 Upload an Excel file using the sidebar to begin.")
