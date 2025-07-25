@@ -164,7 +164,31 @@ if uploaded_file:
                 else:
                     st.info("Column 'Campus' not found in the selected data.")
 
+            # 🔄 Custom Pivot Table Builder
+            with st.expander("🛠️ Build Your Own Pivot Table"):
+                st.markdown("Use the dropdowns below to choose your row and column variables.")
 
+                available_columns = filtered_df.columns.tolist()
+
+                row_choice = st.selectbox("Select row variable:", available_columns, index=available_columns.index("Admit Term") if "Admit Term" in available_columns else 0)
+                col_choice = st.selectbox("Select column variable:", available_columns, index=available_columns.index("Academic Plan Description") if "Academic Plan Description" in available_columns else 1)
+
+                if row_choice and col_choice:
+                    pivot_custom = pd.pivot_table(
+                        filtered_df,
+                        index=row_choice,
+                        columns=col_choice,
+                        aggfunc='size',
+                        fill_value=0
+                    )
+
+                    # If sorting by Admit Term, apply the sort key
+                    if row_choice == "Admit Term":
+                        pivot_custom = pivot_custom.loc[sorted(pivot_custom.index, key=admit_term_sort_key)]
+
+                    st.dataframe(pivot_custom, use_container_width=True)
+
+    
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
 else:
