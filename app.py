@@ -174,7 +174,9 @@ if uploaded_file:
                 col_choice = st.selectbox("Select column variable:", available_columns, index=available_columns.index("Academic Plan Description") if "Academic Plan Description" in available_columns else 1)
 
                 if row_choice and col_choice:
-                    pivot_custom = pd.pivot_table(
+                    # --- Count Pivot Table ---
+                    st.markdown("### 🔢 Count of Records")
+                    pivot_count = pd.pivot_table(
                         filtered_df,
                         index=row_choice,
                         columns=col_choice,
@@ -182,11 +184,30 @@ if uploaded_file:
                         fill_value=0
                     )
 
-                    # If sorting by Admit Term, apply the sort key
                     if row_choice == "Admit Term":
-                        pivot_custom = pivot_custom.loc[sorted(pivot_custom.index, key=admit_term_sort_key)]
+                        pivot_count = pivot_count.loc[sorted(pivot_count.index, key=admit_term_sort_key)]
 
-                    st.dataframe(pivot_custom, use_container_width=True)
+                    st.dataframe(pivot_count, use_container_width=True)
+
+                    # --- Sum of Enrolled Credits Pivot Table ---
+                    if 'Enrolled Credits' in filtered_df.columns:
+                        st.markdown("### 🎓 Sum of Enrolled Credits")
+                        pivot_credits = pd.pivot_table(
+                            filtered_df,
+                            index=row_choice,
+                            columns=col_choice,
+                            values='Enrolled Credits',
+                            aggfunc='sum',
+                            fill_value=0
+                        )
+
+                        if row_choice == "Admit Term":
+                            pivot_credits = pivot_credits.loc[sorted(pivot_credits.index, key=admit_term_sort_key)]
+
+                        st.dataframe(pivot_credits, use_container_width=True)
+                    else:
+                        st.warning("⚠️ Column 'Enrolled Credits' not found in the data.")
+
 
     
     except Exception as e:
