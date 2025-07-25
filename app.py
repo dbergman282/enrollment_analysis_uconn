@@ -70,6 +70,20 @@ if uploaded_file:
 
             st.dataframe(summary_df, use_container_width=True)
 
+            # Pivot table: Rows = Admit Term, Columns = Academic Plan Description, Values = Count
+            if 'Admit Term' in filtered_df.columns:
+                st.subheader("📅 Record Count by Admit Term and Academic Plan Description")
+                pivot_df = pd.pivot_table(
+                    filtered_df,
+                    index='Admit Term',
+                    columns='Academic Plan Description',
+                    aggfunc='size',
+                    fill_value=0
+                )
+                st.dataframe(pivot_df, use_container_width=True)
+            else:
+                st.warning("⚠️ Column 'Admit Term' not found in the data.")
+
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
 else:
