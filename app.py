@@ -84,6 +84,40 @@ if uploaded_file:
             else:
                 st.warning("⚠️ Column 'Admit Term' not found in the data.")
 
+            # Pivot table: Rows = Admit Term, Columns = Academic Plan Description, Values = Count
+            if 'Admit Term' in filtered_df.columns:
+                st.subheader("📅 Record Count by Admit Term and Academic Plan Description")
+
+                # Create a custom sort key for Admit Term
+                def admit_term_sort_key(term):
+                    if pd.isna(term): return (9999, 3)  # Put NaNs at the bottom
+                    parts = term.split()
+                    if len(parts) != 2: return (9999, 3)  # Unrecognized format
+                    season_order = {"Spring": 1, "Summer": 2, "Fall": 3}
+                    season, year = parts[0], parts[1]
+                    return (int(year), season_order.get(season, 4))
+
+                # Clean and sort Admit Term values
+                filtered_df['Admit Term Sort Key'] = filtered_df['Admit Term'].apply(admit_term_sort_key)
+                filtered_df = filtered_df.sort_values('Admit Term Sort Key')
+
+                # Create pivot table
+                pivot_df = pd.pivot_table(
+                    filtered_df,
+                    index='Admit Term',
+                    columns='Academic Plan Description',
+                    aggfunc='size',
+                    fill_value=0
+                )
+
+                # Reorder index using sort key
+                pivot_df = pivot_df.loc[sorted(pivot_df.index, key=admit_term_sort_key)]
+
+                st.dataframe(pivot_df, use_container_width=True)
+            else:
+                st.warning("⚠️ Column 'Admit Term' not found in the data.")
+
+
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
 else:
