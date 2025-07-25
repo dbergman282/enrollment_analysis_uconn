@@ -235,19 +235,19 @@ if uploaded_file:
                     default_value = default_costs.get(plan, fallback_cost)
                     cost_inputs[plan] = st.number_input(
                         f"{plan}", min_value=0, max_value=5000,
-                        value=default_value, step=10, key=f"cost_{plan}"
+                        value=default_value, step=25, key=f"cost_{plan}"
                     )
 
                 # Calculate revenue per record
                 filtered_df['Cost Per Credit'] = filtered_df['Academic Plan Description'].map(cost_inputs)
                 filtered_df['Revenue'] = filtered_df['Enrolled Credits'] * filtered_df['Cost Per Credit']
 
-                # Row selection
+                # Row selection for pivot
                 row_fields = [col for col in filtered_df.columns if col != 'Academic Plan Description']
                 row_choice = st.selectbox("Select row variable for revenue table:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0)
 
                 # Pivot revenue table
-                st.markdown("### 📈 Estimated Revenue Table")
+                st.markdown("### 📈 Estimated Revenue Table (Pivoted)")
                 revenue_pivot = pd.pivot_table(
                     filtered_df,
                     index=row_choice,
@@ -257,14 +257,28 @@ if uploaded_file:
                     fill_value=0
                 )
 
-                # Sort if using Admit Term
                 if row_choice == "Admit Term":
                     revenue_pivot = revenue_pivot.loc[sorted(revenue_pivot.index, key=admit_term_sort_key)]
 
-                # Format as currency
                 revenue_pivot_display = revenue_pivot.applymap(lambda x: f"${x:,.0f}")
-
                 st.dataframe(revenue_pivot_display, use_container_width=True)
+
+                # 👉 Non-pivoted flat table by group
+                st.markdown("### 📄 Total Revenue by Group (Flat Table)")
+
+                flat_group = st.selectbox("Group revenue by:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0, key="flat_group")
+
+                flat_table = (
+                    filtered_df
+                    .groupby(flat_group)
+                    .agg(Total_Revenue=('Revenue', 'sum'))
+                    .reset_index()
+                    .sort_values(by=flat_group)
+                )
+
+                flat_table['Total_Revenue'] = flat_table['Total_Revenue'].apply(lambda x: f"${x:,.0f}")
+
+                st.dataframe(flat_table, use_container_width=True)
 
 
     
