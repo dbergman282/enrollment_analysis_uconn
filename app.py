@@ -208,13 +208,13 @@ if uploaded_file:
                     else:
                         st.warning("⚠️ Column 'Enrolled Credits' not found in the data.")
 
-
-            # 💰 Revenue Estimator by Cost Per Credit
+            # 💰 Revenue Estimator by Cost Per Credit and Future Potential
             with st.expander("💰 Estimated Revenue by Academic Plan"):
-                st.markdown("Enter cost per credit for each academic plan. Revenue is calculated as `Enrolled Credits × Cost per Credit`.")
+                st.markdown("Enter cost per credit and required credits for each academic plan. Revenue is calculated as `Enrolled Credits × Cost per Credit`. Future revenue is based on remaining credits times cost.")
 
-                # Predefined cost per credit (editable defaults)
-                fallback_cost = 1200  # Default for plans not in the dictionary
+                # Predefined defaults
+                fallback_cost = 1200
+                fallback_required_credits = 33
 
                 default_costs = {
                     "Busn Analytics and Proj Man MS": 1200,
@@ -226,28 +226,63 @@ if uploaded_file:
                     "Supply Chain Management MS": 1200
                 }
 
-                # Get all academic plans in filtered data
+                default_required_credits = {
+                    "Busn Analytics and Proj Man MS": 37,
+                    "Fin and Entrprise Risk Mgmt MS": 36,
+                    "Financial Technology MS": 36,
+                    "Accounting MS": 30,
+                    "Human Resource Management MS": 33,
+                    "Social Resp and Imp MS": 30,
+                    "Supply Chain Management MS": 30
+                }
+
                 available_plans = sorted(filtered_df['Academic Plan Description'].dropna().unique())
                 cost_inputs = {}
+                credits_required_inputs = {}
 
-                st.markdown("#### 💵 Cost per Credit (Editable)")
+                st.markdown("#### 💵 Cost per Credit & 🎓 Credits Required (Editable)")
                 for plan in available_plans:
-                    default_value = default_costs.get(plan, fallback_cost)
-                    cost_inputs[plan] = st.number_input(
-                        f"{plan}", min_value=0, max_value=5000,
-                        value=default_value, step=25, key=f"cost_{plan}"
-                    )
+                    default_cost = default_costs.get(plan, fallback_cost)
+                    default_required = default_required_credits.get(plan, fallback_required_credits)
 
-                # Calculate revenue per record
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        cost_inputs[plan] = st.number_input(
+                            f"{plan} – Cost per Credit", min_value=0, max_value=5000,
+                            value=default_cost, step=25, key=f"cost_{plan}"
+                        )
+                    with col2:
+                        credits_required_inputs[plan] = st.number_input(
+                            f"{plan} – Total Credits Required", min_value=0, max_value=100,
+                            value=default_required, step=1, key=f"credits_required_{plan}"
+                        )
+
+                # Calculate revenue and future revenue
                 filtered_df['Cost Per Credit'] = filtered_df['Academic Plan Description'].map(cost_inputs)
+                filtered_df['Credits Required'] = filtered_df['Academic Plan Description'].map(credits_required_inputs)
+
+                # Enrolled revenue
                 filtered_df['Revenue'] = filtered_df['Enrolled Credits'] * filtered_df['Cost Per Credit']
 
-                # Row selection for pivot
-                row_fields = [col for col in filtered_df.columns if col != 'Academic Plan Description']
-                row_choice = st.selectbox("Select row variable for revenue table:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0)
+                # Future revenue
+                if 'STFACT_TOT_CUMULATIVE' in filtered_df.columns:
+                    filtered_df['Credits Remaining'] = (
+                        filtered_df['Credits Required'] - filtered_df['STFACT_TOT_CUMULATIVE']
+                    ).clip(lower=0)
 
-                # Pivot revenue table
-                st.markdown("### 📈 Estimated Revenue Table (Pivoted)")
+                    filtered_df['Future Revenue'] = (
+                        filtered_df['Credits Remaining'] * filtered_df['Cost Per Credit']
+                    )
+                else:
+                    st.warning("⚠️ Column 'STFACT_TOT_CUMULATIVE' not found. Future revenue cannot be calculated.")
+                    filtered_df['Future Revenue'] = 0
+
+                # Row dropdown
+                row_fields = [col for col in filtered_df.columns if col != 'Academic Plan Description']
+                row_choice = st.selectbox("Select row variable for revenue tables:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0)
+
+                # Enrolled Revenue Table
+                st.markdown("### 📈 Estimated Revenue Table (Current Enrolled Credits × Cost)")
                 revenue_pivot = pd.pivot_table(
                     filtered_df,
                     index=row_choice,
@@ -256,29 +291,38 @@ if uploaded_file:
                     aggfunc='sum',
                     fill_value=0
                 )
-
                 if row_choice == "Admit Term":
                     revenue_pivot = revenue_pivot.loc[sorted(revenue_pivot.index, key=admit_term_sort_key)]
+                st.dataframe(revenue_pivot.applymap(lambda x: f"${x:,.0f}"), use_container_width=True)
 
-                revenue_pivot_display = revenue_pivot.applymap(lambda x: f"${x:,.0f}")
-                st.dataframe(revenue_pivot_display, use_container_width=True)
+                # Future Revenue Table
+                st.markdown("### 🧮 Future Revenue Table (Remaining Credits × Cost)")
+                future_pivot = pd.pivot_table(
+                    filtered_df,
+                    index=row_choice,
+                    columns='Academic Plan Description',
+                    values='Future Revenue',
+                    aggfunc='sum',
+                    fill_value=0
+                )
+                if row_choice == "Admit Term":
+                    future_pivot = future_pivot.loc[sorted(future_pivot.index, key=admit_term_sort_key)]
+                st.dataframe(future_pivot.applymap(lambda x: f"${x:,.0f}"), use_container_width=True)
 
-                # 👉 Non-pivoted flat table by group
-                st.markdown("### 📄 Total Revenue by Group (Flat Table)")
-
-                flat_group = st.selectbox("Group revenue by:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0, key="flat_group")
+                # Flat table
+                st.markdown("### 📄 Total Future Revenue by Group (Flat Table)")
+                flat_group = st.selectbox("Group future revenue by:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0, key="flat_future_group")
 
                 flat_table = (
                     filtered_df
                     .groupby(flat_group)
-                    .agg(Total_Revenue=('Revenue', 'sum'))
+                    .agg(Total_Future_Revenue=('Future Revenue', 'sum'))
                     .reset_index()
                     .sort_values(by=flat_group)
                 )
-
-                flat_table['Total_Revenue'] = flat_table['Total_Revenue'].apply(lambda x: f"${x:,.0f}")
-
+                flat_table['Total_Future_Revenue'] = flat_table['Total_Future_Revenue'].apply(lambda x: f"${x:,.0f}")
                 st.dataframe(flat_table, use_container_width=True)
+
 
 
     
