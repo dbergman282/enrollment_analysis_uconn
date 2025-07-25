@@ -209,6 +209,64 @@ if uploaded_file:
                         st.warning("⚠️ Column 'Enrolled Credits' not found in the data.")
 
 
+            # 💰 Revenue Estimator by Cost Per Credit
+            with st.expander("💰 Estimated Revenue by Academic Plan"):
+                st.markdown("Enter cost per credit for each academic plan. Revenue is calculated as `Enrolled Credits × Cost per Credit`.")
+
+                # Predefined cost per credit (editable defaults)
+                fallback_cost = 1200  # Default for plans not in the dictionary
+
+                default_costs = {
+                    "Busn Analytics and Proj Man MS": 1200,
+                    "Fin and Entrprise Risk Mgmt MS": 1500,
+                    "Financial Technology MS": 1500,
+                    "Accounting MS": 1125,
+                    "Human Resource Management MS": 1200,
+                    "Social Resp and Imp MS": 1200,
+                    "Supply Chain Management MS": 1200
+                }
+
+                # Get all academic plans in filtered data
+                available_plans = sorted(filtered_df['Academic Plan Description'].dropna().unique())
+                cost_inputs = {}
+
+                st.markdown("#### 💵 Cost per Credit (Editable)")
+                for plan in available_plans:
+                    default_value = default_costs.get(plan, fallback_cost)
+                    cost_inputs[plan] = st.number_input(
+                        f"{plan}", min_value=0, max_value=5000,
+                        value=default_value, step=10, key=f"cost_{plan}"
+                    )
+
+                # Calculate revenue per record
+                filtered_df['Cost Per Credit'] = filtered_df['Academic Plan Description'].map(cost_inputs)
+                filtered_df['Revenue'] = filtered_df['Enrolled Credits'] * filtered_df['Cost Per Credit']
+
+                # Row selection
+                row_fields = [col for col in filtered_df.columns if col != 'Academic Plan Description']
+                row_choice = st.selectbox("Select row variable for revenue table:", row_fields, index=row_fields.index("Admit Term") if "Admit Term" in row_fields else 0)
+
+                # Pivot revenue table
+                st.markdown("### 📈 Estimated Revenue Table")
+                revenue_pivot = pd.pivot_table(
+                    filtered_df,
+                    index=row_choice,
+                    columns='Academic Plan Description',
+                    values='Revenue',
+                    aggfunc='sum',
+                    fill_value=0
+                )
+
+                # Sort if using Admit Term
+                if row_choice == "Admit Term":
+                    revenue_pivot = revenue_pivot.loc[sorted(revenue_pivot.index, key=admit_term_sort_key)]
+
+                # Format as currency
+                revenue_pivot_display = revenue_pivot.applymap(lambda x: f"${x:,.0f}")
+
+                st.dataframe(revenue_pivot_display, use_container_width=True)
+
+
     
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
