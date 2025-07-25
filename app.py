@@ -149,6 +149,21 @@ if uploaded_file:
                 else:
                     st.info("No domestic students found in the selected data.")
 
+            # Campus vs Academic Plan pivot
+            if 'Campus' in filtered_df.columns:
+                with st.expander("🏫 Campus Summary by Academic Plan"):
+                    campus_pivot = pd.pivot_table(
+                        filtered_df,
+                        index='Campus',
+                        columns='Academic Plan Description',
+                        aggfunc='size',
+                        fill_value=0
+                    )
+                    st.dataframe(campus_pivot, use_container_width=True)
+            else:
+                st.warning("⚠️ Column 'Campus' not found in the data.")
+
+
     except Exception as e:
         st.error(f"❌ Error reading the file: {e}")
 else:
