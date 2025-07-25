@@ -70,19 +70,19 @@ if uploaded_file:
 
             st.dataframe(summary_df, use_container_width=True)
 
-            # Pivot table: Rows = Admit Term, Columns = Academic Plan Description, Values = Count
-            if 'Admit Term' in filtered_df.columns:
-                st.subheader("📅 Record Count by Admit Term and Academic Plan Description")
-                pivot_df = pd.pivot_table(
-                    filtered_df,
-                    index='Admit Term',
-                    columns='Academic Plan Description',
-                    aggfunc='size',
-                    fill_value=0
-                )
-                st.dataframe(pivot_df, use_container_width=True)
-            else:
-                st.warning("⚠️ Column 'Admit Term' not found in the data.")
+            # # Pivot table: Rows = Admit Term, Columns = Academic Plan Description, Values = Count
+            # if 'Admit Term' in filtered_df.columns:
+            #     st.subheader("📅 Record Count by Admit Term and Academic Plan Description")
+            #     pivot_df = pd.pivot_table(
+            #         filtered_df,
+            #         index='Admit Term',
+            #         columns='Academic Plan Description',
+            #         aggfunc='size',
+            #         fill_value=0
+            #     )
+            #     st.dataframe(pivot_df, use_container_width=True)
+            # else:
+            #     st.warning("⚠️ Column 'Admit Term' not found in the data.")
 
             # Pivot table: Rows = Admit Term, Columns = Academic Plan Description, Values = Count
             if 'Admit Term' in filtered_df.columns:
@@ -116,6 +116,61 @@ if uploaded_file:
                 st.dataframe(pivot_df, use_container_width=True)
             else:
                 st.warning("⚠️ Column 'Admit Term' not found in the data.")
+
+            # Map Visa Type to "International" or "Domestic"
+            filtered_df['Student Type'] = filtered_df['Visa Type'].apply(
+                lambda x: 'International' if str(x).strip().upper() == 'F1' else 'Domestic'
+            )
+
+            # 1. Summary table: International vs. Domestic by Academic Plan
+            st.subheader("🌍 Student Type Summary by Academic Plan")
+            student_type_summary = pd.pivot_table(
+                filtered_df,
+                index='Student Type',
+                columns='Academic Plan Description',
+                aggfunc='size',
+                fill_value=0
+            )
+            st.dataframe(student_type_summary, use_container_width=True)
+
+            # 2. International students by Admit Term and Academic Plan
+            st.subheader("🌍 International Students by Admit Term and Academic Plan")
+            intl_df = filtered_df[filtered_df['Student Type'] == 'International']
+            if not intl_df.empty:
+                intl_df = intl_df.copy()
+                intl_df['Admit Term Sort Key'] = intl_df['Admit Term'].apply(admit_term_sort_key)
+                intl_df = intl_df.sort_values('Admit Term Sort Key')
+                intl_pivot = pd.pivot_table(
+                    intl_df,
+                    index='Admit Term',
+                    columns='Academic Plan Description',
+                    aggfunc='size',
+                    fill_value=0
+                )
+                intl_pivot = intl_pivot.loc[sorted(intl_pivot.index, key=admit_term_sort_key)]
+                st.dataframe(intl_pivot, use_container_width=True)
+            else:
+                st.info("No international students found in the selected data.")
+
+            # 3. Domestic students by Admit Term and Academic Plan
+            st.subheader("🏠 Domestic Students by Admit Term and Academic Plan")
+            dom_df = filtered_df[filtered_df['Student Type'] == 'Domestic']
+            if not dom_df.empty:
+                dom_df = dom_df.copy()
+                dom_df['Admit Term Sort Key'] = dom_df['Admit Term'].apply(admit_term_sort_key)
+                dom_df = dom_df.sort_values('Admit Term Sort Key')
+                dom_pivot = pd.pivot_table(
+                    dom_df,
+                    index='Admit Term',
+                    columns='Academic Plan Description',
+                    aggfunc='size',
+                    fill_value=0
+                )
+                dom_pivot = dom_pivot.loc[sorted(dom_pivot.index, key=admit_term_sort_key)]
+                st.dataframe(dom_pivot, use_container_width=True)
+            else:
+                st.info("No domestic students found in the selected data.")
+
 
 
     except Exception as e:
